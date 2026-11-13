@@ -6,7 +6,10 @@ const ASSETS_TO_CACHE = [
   'js/state.js',
   'js/calculator.js',
   'js/ui.js',
-  'js/viewer.js'
+  'js/viewer.js',
+  'js/tailwindcss.js',
+  'css/bootstrap-icons.css',
+  'css/fonts-googleapis-com.css'
 ];
 
 self.addEventListener('install', (event) => {
