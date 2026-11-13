@@ -354,7 +354,7 @@
           // Download fresh app assets
           btn.textContent = `UPDATING v${serverVersion}...`;
           const freshResponses = await Promise.all(
-            APP_ASSETS.map(url => fetch(url, { cache: 'reload' }))
+            APP_ASSETS.map(url => fetch('kesimV2/'+url, { cache: 'reload' }))
           );
 
           // Replace cache contents
