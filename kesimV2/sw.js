@@ -6,10 +6,7 @@ const ASSETS_TO_CACHE = [
   'js/state.js',
   'js/calculator.js',
   'js/ui.js',
-  'js/viewer.js',
-  'https://cdn.tailwindcss.com',
-  'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css',
-  'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'
+  'js/viewer.js'
 ];
 
 self.addEventListener('install', (event) => {
