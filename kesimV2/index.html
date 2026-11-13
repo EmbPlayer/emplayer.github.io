@@ -336,7 +336,7 @@
 
         try {
           // Fetch version.json from server bypassing browser cache
-          const versionRes = await fetch('/version.json?t=' + Date.now(), { cache: 'no-store' });
+          const versionRes = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
           if (!versionRes.ok) throw new Error('Version file not found');
           
           const versionData = await versionRes.json();
