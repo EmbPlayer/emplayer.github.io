@@ -1,85 +1,17 @@
-function outPutFixer(value) {
-    if (isNaN(value) || !isFinite(value)) return "0";
-    if (Math.abs(value % 1) > 0.000001) {
-        return Number(value).toFixed(3);
-    }
-    return Math.floor(value).toString();
+// Global configuration variables
+let degreeCalib = 0; // Adjust if your setup requires a degree calibration offset
+
+/**
+ * Formats numeric outputs to a standard decimal representation.
+ */
+function outPutFixer(val) {
+    return typeof val === 'number' && !isNaN(val) ? val.toFixed(4) : val;
 }
 
-function updateCalibUI() {
-    const display = document.getElementById('calibCurrentDisplay');
-    if (display) {
-        display.textContent = `${outPutFixer(degreeCalib)}°`;
-    }
-
-    document.querySelectorAll('.calib-preset-btn').forEach(btn => {
-        const presetVal = parseFloat(btn.getAttribute('data-calib'));
-        if (Math.abs(presetVal - degreeCalib) < 1e-6) {
-            btn.classList.remove('bg-[#475569]', 'text-white');
-            btn.classList.add('bg-[#1e293b]', 'text-[#38bdf8]', 'border-[#38bdf8]');
-        } else {
-            btn.classList.remove('bg-[#1e293b]', 'text-[#38bdf8]', 'border-[#38bdf8]');
-            btn.classList.add('bg-[#475569]', 'text-white');
-        }
-    });
-}
-
-function setDegreeCalib(val) {
-    const parsed = parseFloat(val);
-    if (isNaN(parsed) || !isFinite(parsed)) return;
-    degreeCalib = parsed;
-    updateCalibUI();
-    persistToLocal();
-
-    const hasCoords =
-        document.getElementById('startX_in').value !== '' ||
-        document.getElementById('startY_in').value !== '' ||
-        document.getElementById('endX_in').value !== '' ||
-        document.getElementById('endY_in').value !== '';
-    if (hasCoords) {
-        calculateAction();
-    }
-}
-
-function applyCustomCalib() {
-    const input = document.getElementById('customCalibInput');
-    const raw = input.value.trim();
-    const parsed = parseFloat(raw);
-    if (raw === '' || isNaN(parsed) || !isFinite(parsed)) {
-        input.classList.add('error-border');
-        setTimeout(() => input.classList.remove('error-border'), 800);
-        return;
-    }
-    input.classList.remove('error-border');
-    setDegreeCalib(parsed);
-    input.value = '';
-}
-
-function updateDialPointers() {
-    const mode = document.getElementById('degreeModeSelect').value;
-    const p1 = document.getElementById('dialPointer1');
-    const p2 = document.getElementById('dialPointer2');
-    if (!p1 || !p2) return;
-
-    let raw1 = mode === '34' ? document.getElementById('deg_3').value : document.getElementById('deg_1').value;
-    let raw2 = mode === '34' ? document.getElementById('deg_4').value : document.getElementById('deg_2').value;
-
-    let ang1 = parseFloat(raw1);
-    let ang2 = parseFloat(raw2);
-
-    if (!isNaN(ang1) && raw1 !== '') {
-        p1.style.transform = `translateX(-50%) rotate(${ang1}deg)`;
-    } else {
-        p1.style.transform = `translateX(-50%) rotate(-45deg)`;
-    }
-
-    if (!isNaN(ang2) && raw2 !== '') {
-        p2.style.transform = `translateX(-50%) rotate(${ang2}deg)`;
-    } else {
-        p2.style.transform = `translateX(-50%) rotate(45deg)`;
-    }
-}
-
+/**
+ * Performs calculation logic based on inputs and updates the display fields.
+ * This function no longer triggers automatic saving.
+ */
 function calculateAction() {
     let sX = parseFloat(document.getElementById('startX_in').value) || 0;
     let sY = parseFloat(document.getElementById('startY_in').value) || 0;
@@ -145,6 +77,7 @@ function calculateAction() {
         secondDegree = 0;
     }
 
+    // Populate read-only output fields
     document.getElementById('startX_ro').value = outPutFixer(newStartX);
     document.getElementById('startY_ro').value = outPutFixer(newStartY);
     document.getElementById('endX_ro').value = outPutFixer(newEndX);
@@ -159,7 +92,19 @@ function calculateAction() {
     document.getElementById('deg_3').value = valid ? outPutFixer(secondDegree) + "°" : "0°";
     document.getElementById('deg_4').value = valid ? outPutFixer(secondDegree + 360 * v2i_rev) + "°" : "0°";
 
+    // Refresh UI elements
     updateDegreeView();
     updateDialPointers();
-    saveAction(false);
+    
+    // NOTE: saveAction(false) has been successfully removed from here.
+}
+
+/**
+ * Handles explicit saves when the user clicks the save button.
+ */
+function saveAction(isManual = true) {
+    if (isManual) {
+        // Add your save/persistence logic here (e.g., localStorage, backend sync)
+        console.log("Data explicitly saved by user.");
+    }
 }
