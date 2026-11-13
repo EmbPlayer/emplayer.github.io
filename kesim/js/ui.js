@@ -510,7 +510,7 @@ function deleteItem(type, name) {
     updateScrollPadding();
 }
 
-// Global numeric validations setup on load
+// Global numeric validations setup on load with 500ms debounce delay
 document.addEventListener('DOMContentLoaded', () => {
     loadFromLocal();
     updateCalibUI();
@@ -540,20 +540,29 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         input.addEventListener('input', function() {
-            let val = this.value;
-            val = val.replace(/[^0-9.-]/g, '');
-            let isNegative = val.startsWith('-');
-            if (isNegative) val = val.substring(1);
-            val = val.replace(/-/g, '');
-            let parts = val.split('.');
-            if (parts.length > 2) val = parts[0] + '.' + parts.slice(1).join('');
-            if (val.length > 1 && val.startsWith('0') && val[1] !== '.') {
-                val = val.replace(/^0+(?=\d)/, '');
-            } else if (val.startsWith('.')) {
-                val = '0' + val;
+            const currentInput = this;
+            
+            if (currentInput._typingTimeout) {
+                clearTimeout(currentInput._typingTimeout);
             }
-            if (isNegative) this.value = '-' + val;
-            else this.value = val;
+
+            currentInput._typingTimeout = setTimeout(() => {
+                let val = currentInput.value;
+                val = val.replace(/[^0-9.-]/g, '');
+                let isNegative = val.startsWith('-');
+                if (isNegative) val = val.substring(1);
+                val = val.replace(/-/g, '');
+                let parts = val.split('.');
+                if (parts.length > 2) val = parts[0] + '.' + parts.slice(1).join('');
+                if (val.length > 1 && val.startsWith('0') && val[1] !== '.') {
+                    val = val.replace(/^0+(?=\d)/, '');
+                } else if (val.startsWith('.')) {
+                    val = '0' + val;
+                }
+                if (isNegative) currentInput.value = '-' + val;
+                else currentInput.value = val;
+            }, 500);
         });
     });
 });
+```[cite: 5]
