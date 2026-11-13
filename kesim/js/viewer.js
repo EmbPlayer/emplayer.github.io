@@ -499,7 +499,10 @@ function openModelViewer() {
     let lines = [];
     const modelData = appData[modelName];
     
-    // Front lines assigned a clear green color (#22c55e)
+    // Get independent degree mode settings for front and back[cite: 4]
+    const frontMode = getCollectionDegreeMode(modelName, 'front');
+    const backMode = getCollectionDegreeMode(modelName, 'back');
+    
     if (modelData.fronts) {
         Object.keys(modelData.fronts)
             .sort((a, b) => parseInt(a, 10) - parseInt(b, 10))
@@ -511,7 +514,8 @@ function openModelViewer() {
                 const y2 = parseFloat(item.endY_in || item.endY_ro);
 
                 if (!isNaN(x1) && !isNaN(y1) && !isNaN(x2) && !isNaN(y2)) {
-                    const degVal = item.deg_1 || item.deg_3 || "0°";
+                    // Use deg_3 if mode is '34', otherwise deg_1
+                    const degVal = (frontMode === '34') ? (item.deg_3 || "0°") : (item.deg_1 || "0°");
                     lines.push({
                         label: `F-${key}`,
                         degree: degVal,
@@ -523,7 +527,6 @@ function openModelViewer() {
             });
     }
 
-    // Back lines assigned a clear red color (#ef4444)
     if (modelData.backs) {
         Object.keys(modelData.backs)
             .sort((a, b) => parseInt(a, 10) - parseInt(b, 10))
@@ -535,7 +538,8 @@ function openModelViewer() {
                 const y2 = parseFloat(item.endY_in || item.endY_ro);
 
                 if (!isNaN(x1) && !isNaN(y1) && !isNaN(x2) && !isNaN(y2)) {
-                    const degVal = item.deg_1 || item.deg_3 || "0°";
+                    // Use deg_3 if mode is '34', otherwise deg_1
+                    const degVal = (backMode === '34') ? (item.deg_3 || "0°") : (item.deg_1 || "0°");
                     lines.push({
                         label: `B-${key}`,
                         degree: degVal,
