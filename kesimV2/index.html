@@ -292,16 +292,13 @@
       const APP_VERSION_KEY = 'coord_calc_installed_version';
       const CACHE_NAME = 'coord-calculator-v1';
       const APP_ASSETS = [
-        '/',
-        '/index.html',
-        '/css/styles.css',
-        '/js/state.js',
-        '/js/calculator.js',
-        '/js/ui.js',
-        '/js/viewer.js',
-        'https://cdn.tailwindcss.com',
-        'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css',
-        'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'
+        '',
+        'index.html',
+        'css/styles.css',
+        'js/state.js',
+        'js/calculator.js',
+        'js/ui.js',
+        'js/viewer.js'
       ];
 
       // Register Service Worker
@@ -354,7 +351,7 @@
           // Download fresh app assets
           btn.textContent = `UPDATING v${serverVersion}...`;
           const freshResponses = await Promise.all(
-            APP_ASSETS.map(url => fetch('kesimV2/'+url, { cache: 'reload' }))
+            APP_ASSETS.map(url => fetch(url, { cache: 'reload' }))
           );
 
           // Replace cache contents
