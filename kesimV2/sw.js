@@ -1,4 +1,4 @@
-const CACHE_NAME = 'coord-calculator-v1';
+const CACHE_NAME = 'coord-calculator-v2';
 const ASSETS_TO_CACHE = [
   '',
   'index.html',
