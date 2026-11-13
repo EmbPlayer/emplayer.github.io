@@ -565,4 +565,3 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 });
-```[cite: 5]
