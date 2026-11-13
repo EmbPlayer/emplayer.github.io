@@ -1,37 +1,85 @@
-// ==========================================
-// CALCULATOR & DATA MANAGEMENT SCRIPT
-// ==========================================
-
-// Helper / Utility functions (Adjust as needed for your project structure)
-function outPutFixer(val) {
-    return typeof val === 'number' ? val.toFixed(4) : val;
-}
-
-function updateDegreeView() {
-    // UI update logic for degrees
-}
-
-function updateDialPointers() {
-    // UI update logic for dials
+function outPutFixer(value) {
+    if (isNaN(value) || !isFinite(value)) return "0";
+    if (Math.abs(value % 1) > 0.000001) {
+        return Number(value).toFixed(3);
+    }
+    return Math.floor(value).toString();
 }
 
 function updateCalibUI() {
-    // UI update logic for calibration
+    const display = document.getElementById('calibCurrentDisplay');
+    if (display) {
+        display.textContent = `${outPutFixer(degreeCalib)}°`;
+    }
+
+    document.querySelectorAll('.calib-preset-btn').forEach(btn => {
+        const presetVal = parseFloat(btn.getAttribute('data-calib'));
+        if (Math.abs(presetVal - degreeCalib) < 1e-6) {
+            btn.classList.remove('bg-[#475569]', 'text-white');
+            btn.classList.add('bg-[#1e293b]', 'text-[#38bdf8]', 'border-[#38bdf8]');
+        } else {
+            btn.classList.remove('bg-[#1e293b]', 'text-[#38bdf8]', 'border-[#38bdf8]');
+            btn.classList.add('bg-[#475569]', 'text-white');
+        }
+    });
 }
 
-function persistToLocal() {
-    // Save state to localStorage or backend
-    if (typeof appData !== 'undefined') {
-        localStorage.setItem('appData', JSON.stringify(appData));
+function setDegreeCalib(val) {
+    const parsed = parseFloat(val);
+    if (isNaN(parsed) || !isFinite(parsed)) return;
+    degreeCalib = parsed;
+    updateCalibUI();
+    persistToLocal();
+
+    const hasCoords =
+        document.getElementById('startX_in').value !== '' ||
+        document.getElementById('startY_in').value !== '' ||
+        document.getElementById('endX_in').value !== '' ||
+        document.getElementById('endY_in').value !== '';
+    if (hasCoords) {
+        calculateAction();
     }
 }
 
-function flashSaveFeedback() {
-    // Visual indicator that save was successful
-    console.log("Saved successfully!");
+function applyCustomCalib() {
+    const input = document.getElementById('customCalibInput');
+    const raw = input.value.trim();
+    const parsed = parseFloat(raw);
+    if (raw === '' || isNaN(parsed) || !isFinite(parsed)) {
+        input.classList.add('error-border');
+        setTimeout(() => input.classList.remove('error-border'), 800);
+        return;
+    }
+    input.classList.remove('error-border');
+    setDegreeCalib(parsed);
+    input.value = '';
 }
 
-// 1. Calculate Action
+function updateDialPointers() {
+    const mode = document.getElementById('degreeModeSelect').value;
+    const p1 = document.getElementById('dialPointer1');
+    const p2 = document.getElementById('dialPointer2');
+    if (!p1 || !p2) return;
+
+    let raw1 = mode === '34' ? document.getElementById('deg_3').value : document.getElementById('deg_1').value;
+    let raw2 = mode === '34' ? document.getElementById('deg_4').value : document.getElementById('deg_2').value;
+
+    let ang1 = parseFloat(raw1);
+    let ang2 = parseFloat(raw2);
+
+    if (!isNaN(ang1) && raw1 !== '') {
+        p1.style.transform = `translateX(-50%) rotate(${ang1}deg)`;
+    } else {
+        p1.style.transform = `translateX(-50%) rotate(-45deg)`;
+    }
+
+    if (!isNaN(ang2) && raw2 !== '') {
+        p2.style.transform = `translateX(-50%) rotate(${ang2}deg)`;
+    } else {
+        p2.style.transform = `translateX(-50%) rotate(45deg)`;
+    }
+}
+
 function calculateAction() {
     let sX = parseFloat(document.getElementById('startX_in').value) || 0;
     let sY = parseFloat(document.getElementById('startY_in').value) || 0;
@@ -79,7 +127,6 @@ function calculateAction() {
     }
 
     let secondLendght = Math.sqrt(Math.pow(x - kisa.x, 2) + Math.pow(y - kisa.y, 2));
-    let degreeCalib = window.degreeCalib || 0;
     let firstDegree = Math.acos(secondLendght / Math.abs(currentLen)) * (180 / Math.PI) + degreeCalib;
     
     let secondDegree = 0;
@@ -98,7 +145,6 @@ function calculateAction() {
         secondDegree = 0;
     }
 
-    // Populate read-only output fields
     document.getElementById('startX_ro').value = outPutFixer(newStartX);
     document.getElementById('startY_ro').value = outPutFixer(newStartY);
     document.getElementById('endX_ro').value = outPutFixer(newEndX);
@@ -115,78 +161,5 @@ function calculateAction() {
 
     updateDegreeView();
     updateDialPointers();
-    
-    // Automatically save current input state on calculation
-    if (typeof saveAction === 'function') {
-        saveAction(false);
-    }
-}
-
-// 2. Load Form Data Action (When switching/opening a line)
-function loadCurrentFormData() {
-    if (!window.currentState || !window.currentState.model || !window.currentState.configType || !window.currentState.configValue) return;
-    
-    const record = window.appData?.[window.currentState.model]?.[window.currentState.configType + 's']?.[window.currentState.configValue];
-    if (!record) return;
-
-    // Load stored input values into input fields (_in)
-    document.getElementById('startX_in').value = record.startX_in ?? '';
-    document.getElementById('startY_in').value = record.startY_in ?? '';
-    document.getElementById('endX_in').value = record.endX_in ?? '';
-    document.getElementById('endY_in').value = record.endY_in ?? '';
-    document.getElementById('len_start_in').value = record.len_start_in ?? '';
-    document.getElementById('len_end_in').value = record.len_end_in ?? '';
-
-    // Clear all output/calculated fields (_ro, deg_*) so the form looks uncalculated when reopened
-    document.getElementById('startX_ro').value = '';
-    document.getElementById('startY_ro').value = '';
-    document.getElementById('endX_ro').value = '';
-    document.getElementById('endY_ro').value = '';
-    document.getElementById('len_ro').value = '';
-    document.getElementById('deg_1').value = '';
-    document.getElementById('deg_2').value = '';
-    document.getElementById('deg_3').value = '';
-    document.getElementById('deg_4').value = '';
-
-    updateCalibUI();
-}
-
-// 3. Save Action (When clicking the save button)
-function saveAction(isManualClick = true) {
-    if (!window.currentState || !window.currentState.model || !window.currentState.configType || !window.currentState.configValue) return;
-
-    // Clear input values in the saved record and store calculated output values instead
-    const savedData = {
-        startX_in: '',
-        startY_in: '',
-        endX_in: '',
-        endY_in: '',
-        len_start_in: '',
-        len_end_in: '',
-        
-        // Save computed output values
-        startX_ro: document.getElementById('startX_ro').value,
-        startY_ro: document.getElementById('startY_ro').value,
-        endX_ro: document.getElementById('endX_ro').value,
-        endY_ro: document.getElementById('endY_ro').value,
-        len_ro: document.getElementById('len_ro').value,
-        deg_1: document.getElementById('deg_1').value,
-        deg_2: document.getElementById('deg_2').value,
-        deg_3: document.getElementById('deg_3').value,
-        deg_4: document.getElementById('deg_4').value
-    };
-
-    if (!window.appData[window.currentState.model]) {
-        window.appData[window.currentState.model] = {};
-    }
-    if (!window.appData[window.currentState.model][window.currentState.configType + 's']) {
-        window.appData[window.currentState.model][window.currentState.configType + 's'] = {};
-    }
-
-    window.appData[window.currentState.model][window.currentState.configType + 's'][window.currentState.configValue] = savedData;
-    persistToLocal();
-
-    if (isManualClick) {
-        flashSaveFeedback();
-    }
+    saveAction(false);
 }
