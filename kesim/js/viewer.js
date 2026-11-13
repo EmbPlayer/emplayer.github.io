@@ -81,7 +81,8 @@ function viewerReset() {
 }
 
 function viewerZoomAtPixel(px, py, factor) {
-    const newScale = Math.min(Math.max(viewerState.viewport.scale * factor, 5), 1000);
+    // Expanded limits to support both extremely large and extremely small data values
+    const newScale = Math.min(Math.max(viewerState.viewport.scale * factor, 1e-6), 1e8);
     const world = vScreenToWorld(px, py);
 
     viewerState.viewport.scale = newScale;
@@ -133,7 +134,9 @@ function viewerFitAll() {
         const scaleY = spanY > 1e-6 ? availH / spanY : Infinity;
         optimalScale = Math.min(scaleX, scaleY);
     }
-    optimalScale = Math.min(Math.max(optimalScale, 5), 500);
+    
+    // Allow dynamic scale bounds based on data span rather than hardcoded 5 to 500
+    optimalScale = Math.min(Math.max(optimalScale, 1e-6), 1e8);
 
     const worldCenterX = (minX + maxX) / 2;
     const worldCenterY = (minY + maxY) / 2;
@@ -264,7 +267,6 @@ function drawViewerLine(line) {
     const midY = (line.y1 + line.y2) / 2;
     const spMid = vWorldToScreen(midX, midY);
 
-    // Draw main coordinate line
     vCtx.strokeStyle = line.color;
     vCtx.lineWidth = 2.5;
     vCtx.beginPath();
@@ -272,17 +274,14 @@ function drawViewerLine(line) {
     vCtx.lineTo(sp2.x, sp2.y);
     vCtx.stroke();
 
-    // Calculate length for display
     const dx = line.x2 - line.x1;
     const dy = line.y2 - line.y1;
     const lengthVal = Math.sqrt(dx * dx + dy * dy);
 
-    // Build label text: Name + Degree + Length
     let displayDegree = line.degree ? line.degree : "0°";
     let primaryText = `${line.label} (${displayDegree})`;
     let secondaryText = `L: ${vFormatNum(lengthVal)}`;
 
-    // Draw midpoint pin marker
     vCtx.beginPath();
     vCtx.arc(spMid.x, spMid.y, 4, 0, Math.PI * 2);
     vCtx.fillStyle = '#64748b';
@@ -291,32 +290,27 @@ function drawViewerLine(line) {
     vCtx.strokeStyle = '#e2e8f0';
     vCtx.stroke();
 
-    // Measure text widths for background badge sizing
     vCtx.font = 'bold 11px ui-sans-serif, system-ui, sans-serif';
     const tw1 = vCtx.measureText(primaryText).width;
     vCtx.font = '10px ui-sans-serif, system-ui, sans-serif';
     const tw2 = vCtx.measureText(secondaryText).width;
     const maxTw = Math.max(tw1, tw2);
 
-    // Draw background badge pill at midpoint
     vCtx.fillStyle = 'rgba(15, 23, 42, 0.9)';
     vCtx.beginPath();
     vCtx.roundRect(spMid.x - maxTw / 2 - 6, spMid.y - 30, maxTw + 12, 28, 4);
     vCtx.fill();
 
-    // Render Primary Text (Name + Degree)
     vCtx.font = 'bold 11px ui-sans-serif, system-ui, sans-serif';
     vCtx.fillStyle = '#ffffff';
     vCtx.textAlign = 'center';
     vCtx.textBaseline = 'middle';
     vCtx.fillText(primaryText, spMid.x, spMid.y - 19);
 
-    // Render Secondary Text (Length)
     vCtx.font = '10px ui-sans-serif, system-ui, sans-serif';
     vCtx.fillStyle = '#38bdf8';
     vCtx.fillText(secondaryText, spMid.x, spMid.y - 7);
 
-    // Draw start and end points
     drawViewerPoint(sp1.x, sp1.y, line.color, `START (${vFormatNum(line.x1)}, ${vFormatNum(line.y1)})`);
     drawViewerPoint(sp2.x, sp2.y, line.color, `END (${vFormatNum(line.x2)}, ${vFormatNum(line.y2)})`);
 }
@@ -519,7 +513,6 @@ function openModelViewer() {
                 const y2 = parseFloat(item.endY_in || item.endY_ro);
 
                 if (!isNaN(x1) && !isNaN(y1) && !isNaN(x2) && !isNaN(y2)) {
-                    // Extract the first available selected degree
                     const degVal = item.deg_1 || item.deg_3 || "0°";
                     lines.push({
                         label: `F-${key}`,
@@ -544,7 +537,6 @@ function openModelViewer() {
                 const y2 = parseFloat(item.endY_in || item.endY_ro);
 
                 if (!isNaN(x1) && !isNaN(y1) && !isNaN(x2) && !isNaN(y2)) {
-                    // Extract the first available selected degree
                     const degVal = item.deg_1 || item.deg_3 || "0°";
                     lines.push({
                         label: `B-${key}`,
