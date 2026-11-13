@@ -1,12 +1,12 @@
 const CACHE_NAME = 'coord-calculator-v1';
 const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/css/styles.css',
-  '/js/state.js',
-  '/js/calculator.js',
-  '/js/ui.js',
-  '/js/viewer.js',
+  '',
+  'index.html',
+  'css/styles.css',
+  'js/state.js',
+  'js/calculator.js',
+  'js/ui.js',
+  'js/viewer.js',
   'https://cdn.tailwindcss.com',
   'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css',
   'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'
