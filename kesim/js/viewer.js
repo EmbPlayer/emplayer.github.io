@@ -1,3 +1,4 @@
+name=viewer.js
 const BASE_SCALE = 50;
 let viewerState = {
     viewport: { originX: 0, originY: 0, scale: BASE_SCALE },
@@ -81,7 +82,6 @@ function viewerReset() {
 }
 
 function viewerZoomAtPixel(px, py, factor) {
-    // Expanded limits to support both extremely large and extremely small data values
     const newScale = Math.min(Math.max(viewerState.viewport.scale * factor, 1e-6), 1e8);
     const world = vScreenToWorld(px, py);
 
@@ -135,7 +135,6 @@ function viewerFitAll() {
         optimalScale = Math.min(scaleX, scaleY);
     }
     
-    // Allow dynamic scale bounds based on data span rather than hardcoded 5 to 500
     optimalScale = Math.min(Math.max(optimalScale, 1e-6), 1e8);
 
     const worldCenterX = (minX + maxX) / 2;
@@ -499,9 +498,9 @@ function openModelViewer() {
     document.getElementById('viewerModelTitle').textContent = modelName;
 
     let lines = [];
-    let colorIdx = 0;
     const modelData = appData[modelName];
     
+    // Front lines assigned a clear green color (#22c55e)
     if (modelData.fronts) {
         Object.keys(modelData.fronts)
             .sort((a, b) => parseInt(a, 10) - parseInt(b, 10))
@@ -518,14 +517,14 @@ function openModelViewer() {
                         label: `F-${key}`,
                         degree: degVal,
                         x1: x1, y1: y1, x2: x2, y2: y2,
-                        color: viewerState.colorPalette[colorIdx % viewerState.colorPalette.length],
+                        color: '#22c55e', // Green for front lines
                         visible: true
                     });
-                    colorIdx++;
                 }
             });
     }
 
+    // Back lines assigned a clear red color (#ef4444)
     if (modelData.backs) {
         Object.keys(modelData.backs)
             .sort((a, b) => parseInt(a, 10) - parseInt(b, 10))
@@ -542,10 +541,9 @@ function openModelViewer() {
                         label: `B-${key}`,
                         degree: degVal,
                         x1: x1, y1: y1, x2: x2, y2: y2,
-                        color: viewerState.colorPalette[colorIdx % viewerState.colorPalette.length],
+                        color: '#ef4444', // Red for back lines
                         visible: true
                     });
-                    colorIdx++;
                 }
             });
     }
