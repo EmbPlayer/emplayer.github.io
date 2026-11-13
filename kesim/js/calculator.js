@@ -1,5 +1,10 @@
+Here is the fully updated calculator.js file configured to meet your exact workflow:
+ * On Click Calculate (calculateAction): It performs the calculation, updates the view, and saves all input values (including start/end lengths, X, and Y coordinates) so that when you switch between lines and reload, the inputs are correctly restored.
+ * On Click Save (saveAction): When the explicit Save button is clicked, it saves the output data and cleans/resets all the input fields.
+Full calculator.js Code
 // Global configuration variables
 let degreeCalib = 0; // Adjust if your setup requires a degree calibration offset
+let currentLineId = "default_line"; // Change or bind this to your active line identifier if needed
 
 /**
  * Formats numeric outputs to a standard decimal representation.
@@ -9,8 +14,8 @@ function outPutFixer(val) {
 }
 
 /**
- * Performs calculation logic based on inputs and updates the display fields.
- * This function no longer triggers automatic saving.
+ * Performs calculation logic, updates the display fields, 
+ * and saves all input values so line states persist when switching.
  */
 function calculateAction() {
     let sX = parseFloat(document.getElementById('startX_in').value) || 0;
@@ -81,6 +86,7 @@ function calculateAction() {
     document.getElementById('startX_ro').value = outPutFixer(newStartX);
     document.getElementById('startY_ro').value = outPutFixer(newStartY);
     document.getElementById('endX_ro').value = outPutFixer(newEndX);
+    document.getElementById('endY_ro').value = outPrevOutput(newEndY); // or outPutFixer
     document.getElementById('endY_ro').value = outPutFixer(newEndY);
     document.getElementById('len_ro').value = outPutFixer(currentLen);
 
@@ -95,16 +101,83 @@ function calculateAction() {
     // Refresh UI elements
     updateDegreeView();
     updateDialPointers();
-    
-    // NOTE: saveAction(false) has been successfully removed from here.
+
+    // Automatically save all input values on calculate so they are remembered when switching lines
+    saveAction(false); 
 }
 
 /**
- * Handles explicit saves when the user clicks the save button.
+ * Handles saving inputs/outputs and input cleaning.
+ * @param {boolean} isManual - True if the user clicked the Save button, false if triggered automatically.
  */
 function saveAction(isManual = true) {
+    // Gather all current inputs
+    let inputData = {
+        startX: document.getElementById('startX_in').value,
+        startY: document.getElementById('startY_in').value,
+        endX: document.getElementById('endX_in').value,
+        endY: document.getElementById('endY_in').value,
+        lenStart: document.getElementById('len_start_in').value,
+        lenEnd: document.getElementById('len_end_in').value
+    };
+
     if (isManual) {
-        // Add your save/persistence logic here (e.g., localStorage, backend sync)
-        console.log("Data explicitly saved by user.");
+        // 1. SAVE OUTPUTS (and inputs) when the user clicks the explicit SAVE button
+        let outputData = {
+            startX_ro: document.getElementById('startX_ro').value,
+            startY_ro: document.getElementById('startY_ro').value,
+            endX_ro: document.getElementById('endX_ro').value,
+            endY_ro: document.getElementById('endY_ro').value,
+            len_ro: document.getElementById('len_ro').value,
+            deg_1: document.getElementById('deg_1').value,
+            deg_2: document.getElementById('deg_2').value,
+            deg_3: document.getElementById('deg_3').value,
+            deg_4: document.getElementById('deg_4').value
+        };
+
+        // Example persistence logic (LocalStorage using line ID)
+        localStorage.setItem('line_saved_outputs_' + currentLineId, JSON.stringify(outputData));
+        localStorage.setItem('line_saved_inputs_' + currentLineId, JSON.stringify(inputData));
+        console.log("Outputs saved successfully for line:", currentLineId);
+
+        // 2. INPUT CLEANING: Clear/reset all input fields after manual save
+        document.getElementById('startX_in').value = '';
+        document.getElementById('startY_in').value = '';
+        document.getElementById('endX_in').value = '';
+        document.getElementById('endY_in').value = '';
+        document.getElementById('len_start_in').value = '';
+        document.getElementById('len_end_in').value = '';
+        
+        console.log("Input fields cleaned.");
+    } else {
+        // Automatic background save of inputs when calculate is pressed (for line switching persistence)
+        localStorage.setItem('line_saved_inputs_' + currentLineId, JSON.stringify(inputData));
     }
 }
+
+/**
+ * Helper function to load saved inputs when switching back to a line.
+ */
+function loadLineInputs(lineId) {
+    currentLineId = lineId;
+    let savedInputs = localStorage.getItem('line_saved_inputs_' + currentLineId);
+    
+    if (savedInputs) {
+        let data = JSON.parse(savedInputs);
+        document.getElementById('startX_in').value = data.startX || '';
+        document.getElementById('startY_in').value = data.startY || '';
+        document.getElementById('endX_in').value = data.endX || '';
+        document.getElementById('endY_in').value = data.endY || '';
+        document.getElementById('len_start_in').value = data.lenStart || '';
+        document.getElementById('len_end_in').value = data.lenEnd || '';
+    } else {
+        // Clear inputs if nothing is saved for this line yet
+        document.getElementById('startX_in').value = '';
+        document.getElementById('startY_in').value = '';
+        document.getElementById('endX_in').value = '';
+        document.getElementById('endY_in').value = '';
+        document.getElementById('len_start_in').value = '';
+        document.getElementById('len_end_in').value = '';
+    }
+}
+
