@@ -1,4 +1,3 @@
-name=viewer.js
 const BASE_SCALE = 50;
 let viewerState = {
     viewport: { originX: 0, originY: 0, scale: BASE_SCALE },
