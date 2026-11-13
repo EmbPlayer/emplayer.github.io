@@ -161,5 +161,5 @@ function calculateAction() {
 
     updateDegreeView();
     updateDialPointers();
-    saveAction(false);
+    //saveAction(false);
 }
