@@ -82,18 +82,7 @@ function reloadCurrentData() {
     }
 }
 
-function syncOutputsToInputs() {
-    document.getElementById('startX_in').value = document.getElementById('startX_ro').value;
-    document.getElementById('startY_in').value = document.getElementById('startY_ro').value;
-    document.getElementById('endX_in').value = document.getElementById('endX_ro').value;
-    document.getElementById('endY_in').value = document.getElementById('endY_ro').value;
-    document.getElementById('len_start_in').value = '';
-    document.getElementById('len_end_in').value = '';
-}
-
-// Clears the transient resize inputs for EVERY model and EVERY config
-// (fronts + backs), so nothing "unconsumed" stays in the saved state.
-function cleanAllResizeFields() {
+function cleanAllInputFields() {
     Object.keys(appData).forEach(modelName => {
         const model = appData[modelName];
         if (!model) return;
@@ -102,6 +91,10 @@ function cleanAllResizeFields() {
                 Object.keys(model[plural]).forEach(configKey => {
                     const cfg = model[plural][configKey];
                     if (cfg && typeof cfg === 'object') {
+                        cfg.startX_in = '';
+                        cfg.startY_in = '';
+                        cfg.endX_in = '';
+                        cfg.endY_in = '';
                         cfg.len_start_in = '';
                         cfg.len_end_in = '';
                     }
@@ -158,13 +151,8 @@ function showBackupStatus(msg, isError = false) {
 }
 
 function saveAction(manualSave = false) {
-    if (manualSave) {
-        syncOutputsToInputs();
-    }
-
     const selectedMode = document.getElementById('degreeModeSelect').value;
 
-    // ---------- Empty appData: bootstrap Base Model / Front 1 ----------
     if (Object.keys(appData).length === 0) {
         const baseModelName = "Base Model";
         appData[baseModelName] = {
@@ -181,8 +169,9 @@ function saveAction(manualSave = false) {
         appData[baseModelName].fronts["1"] = getFormData();
 
         if (manualSave) {
-            cleanAllResizeFields();
+            cleanAllInputFields();
             committedData = JSON.parse(JSON.stringify(appData));
+            loadCurrentFormData();
         }
 
         persistToLocal();
@@ -195,17 +184,14 @@ function saveAction(manualSave = false) {
         return;
     }
 
-    // ---------- Normal save path ----------
     if (currentState.model && currentState.configType && currentState.configValue) {
-        // Capture the current form (already synced if manualSave) into appData.
         appData[currentState.model][`${currentState.configType}s`][currentState.configValue] = getFormData();
         setCollectionDegreeMode(currentState.model, currentState.configType, selectedMode);
 
         if (manualSave) {
-            // Clear resize inputs across ALL models/configs so the committed
-            // state is "clean" everywhere — not just for the current form.
-            cleanAllResizeFields();
+            cleanAllInputFields();
             committedData = JSON.parse(JSON.stringify(appData));
+            loadCurrentFormData();
         }
 
         persistToLocal();
@@ -236,8 +222,9 @@ function saveAction(manualSave = false) {
             setCollectionDegreeMode(currentState.model, currentState.configType, selectedMode);
 
             if (manualSave) {
-                cleanAllResizeFields();
+                cleanAllInputFields();
                 committedData = JSON.parse(JSON.stringify(appData));
+                loadCurrentFormData();
             }
 
             persistToLocal();
@@ -326,7 +313,6 @@ function updateDisplayer() {
 }
 
 function selectItem(type, name) {
-    // Preserve current form (including resize values) as a draft before switching away.
     if (currentState.model && currentState.configType && currentState.configValue) {
         if (appData[currentState.model] &&
             appData[currentState.model][`${currentState.configType}s`]) {
@@ -334,7 +320,6 @@ function selectItem(type, name) {
         }
     }
 
-    // Re-clicking the same item: just close the menu, no reload.
     if (type === 'model' && name === currentState.model) {
         toggleMenu();
         return;
