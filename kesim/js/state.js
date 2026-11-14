@@ -1,6 +1,7 @@
 const STORAGE_KEY = 'coordinate_calculator_storage';
 
 let appData = {};
+let committedData = {};   // snapshot at last explicit SAVE (used by RELOAD)
 let degreeCalib = 90;
 let currentState = {
     model: null,
@@ -44,6 +45,7 @@ function persistToLocal() {
     try {
         const payload = {
             appData: appData,
+            committedData: committedData,
             currentState: currentState,
             degreeCalib: degreeCalib
         };
@@ -61,12 +63,19 @@ function loadFromLocal() {
         const parsed = JSON.parse(raw);
         if (parsed && typeof parsed === 'object') {
             appData = parsed.appData || {};
+            Object.keys(appData).forEach(m => ensureModelDegreeModes(m));
+
+            // Load committed snapshot; if missing (old data), treat current appData as committed.
+            if (parsed.committedData && typeof parsed.committedData === 'object') {
+                committedData = JSON.parse(JSON.stringify(parsed.committedData));
+            } else {
+                committedData = JSON.parse(JSON.stringify(appData));
+            }
+
             currentState = parsed.currentState || { model: null, configType: null, configValue: null };
             if (typeof parsed.degreeCalib === 'number' && isFinite(parsed.degreeCalib)) {
                 degreeCalib = parsed.degreeCalib;
             }
-
-            Object.keys(appData).forEach(m => ensureModelDegreeModes(m));
 
             if (currentState.model && !appData[currentState.model]) {
                 currentState = { model: null, configType: null, configValue: null };
@@ -155,6 +164,8 @@ function applyImportedPayload(rawText) {
         }
         appData = parsed.appData;
         Object.keys(appData).forEach(m => ensureModelDegreeModes(m));
+        // Imported data becomes the committed state immediately
+        committedData = JSON.parse(JSON.stringify(appData));
         currentState = parsed.currentState || { model: null, configType: null, configValue: null };
         if (typeof parsed.degreeCalib === 'number' && isFinite(parsed.degreeCalib)) {
             degreeCalib = parsed.degreeCalib;
