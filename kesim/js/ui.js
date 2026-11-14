@@ -51,6 +51,23 @@ function loadCurrentFormData() {
     }
 }
 
+// RELOAD: discard any in-memory calculation and restore the last saved state.
+function reloadCurrentData() {
+    if (!currentState.model || !currentState.configType || !currentState.configValue) {
+        alert("No model/config is currently selected. Please select one first.");
+        return;
+    }
+
+    // Rebuild the form from the persisted snapshot in appData / localStorage.
+    loadCurrentFormData();
+
+    // Close the dropdown so the user can see the reverted form.
+    const menu = document.getElementById('dropdownMenu');
+    if (menu && !menu.classList.contains('hidden')) {
+        toggleMenu();
+    }
+}
+
 function syncOutputsToInputs() {
     document.getElementById('startX_in').value = document.getElementById('startX_ro').value;
     document.getElementById('startY_in').value = document.getElementById('startY_ro').value;
