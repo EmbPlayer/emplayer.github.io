@@ -18,6 +18,67 @@ function getFormData() {
     };
 }
 
+// Rebuild deg_2, deg_3, deg_4 from deg_1 using the same formulas as calculateAction().
+function reconstructDegreesFromDeg1(deg1Raw, startX, startY, endX, endY) {
+    const EMPTY = { deg_1: '', deg_2: '', deg_3: '', deg_4: '' };
+    const ZEROS = { deg_1: '0°', deg_2: '0°', deg_3: '0°', deg_4: '0°' };
+
+    if (deg1Raw === undefined || deg1Raw === null || deg1Raw === '') {
+        return EMPTY;
+    }
+
+    const deg1 = parseFloat(deg1Raw);
+    if (isNaN(deg1) || !isFinite(deg1)) {
+        return EMPTY;
+    }
+
+    const sX = parseFloat(startX) || 0;
+    const sY = parseFloat(startY) || 0;
+    const eX = parseFloat(endX) || 0;
+    const eY = parseFloat(endY) || 0;
+    const len = Math.sqrt((sX - eX) * (sX - eX) + (sY - eY) * (sY - eY));
+
+    if (len < 1e-9) {
+        return ZEROS;
+    }
+
+    let i;
+    if (sY > eY) {
+        i = sX > eX ? 1 : -1;
+    } else {
+        i = eX > sX ? 1 : -1;
+    }
+
+    const v2i = deg1 < 0 ? 1 : -1;
+    const secondDegree = deg1 - 180 * i;
+    const v2i_rev = secondDegree < 0 ? 1 : -1;
+
+    return {
+        deg_1: deg1Raw,
+        deg_2: outPutFixer(deg1 + 360 * v2i) + "°",
+        deg_3: outPutFixer(secondDegree) + "°",
+        deg_4: outPutFixer(secondDegree + 360 * v2i_rev) + "°"
+    };
+}
+
+// Rebuild len_ro from the read-only coordinates when it's not stored.
+function reconstructLength(startX, startY, endX, endY) {
+    const hasCoords =
+        (startX !== undefined && startX !== null && startX !== '') ||
+        (startY !== undefined && startY !== null && startY !== '') ||
+        (endX !== undefined && endX !== null && endX !== '') ||
+        (endY !== undefined && endY !== null && endY !== '');
+
+    if (!hasCoords) return '';
+
+    const sX = parseFloat(startX) || 0;
+    const sY = parseFloat(startY) || 0;
+    const eX = parseFloat(endX) || 0;
+    const eY = parseFloat(endY) || 0;
+    const dist = Math.sqrt((sX - eX) * (sX - eX) + (sY - eY) * (sY - eY));
+    return outPutFixer(dist);
+}
+
 function setFormData(data) {
     document.getElementById('startX_ro').value = data.startX_ro || '';
     document.getElementById('startX_in').value = data.startX_in || '';
@@ -29,14 +90,40 @@ function setFormData(data) {
     document.getElementById('endY_ro').value = data.endY_ro || '';
     document.getElementById('endY_in').value = data.endY_in || '';
 
-    document.getElementById('len_ro').value = data.len_ro || '';
+    // len_ro: use stored value if present; otherwise reconstruct from coordinates.
+    let lenRo = data.len_ro;
+    if (lenRo === undefined || lenRo === null || lenRo === '') {
+        lenRo = reconstructLength(data.startX_ro, data.startY_ro, data.endX_ro, data.endY_ro);
+    }
+    document.getElementById('len_ro').value = lenRo;
     document.getElementById('len_start_in').value = data.len_start_in || '';
     document.getElementById('len_end_in').value = data.len_end_in || '';
 
-    document.getElementById('deg_1').value = data.deg_1 || '';
-    document.getElementById('deg_2').value = data.deg_2 || '';
-    document.getElementById('deg_3').value = data.deg_3 || '';
-    document.getElementById('deg_4').value = data.deg_4 || '';
+    // Degrees: use stored values if all 4 exist; otherwise reconstruct from deg_1.
+    const hasAllDegs = data.deg_1 && data.deg_2 && data.deg_3 && data.deg_4;
+    let d1, d2, d3, d4;
+    if (hasAllDegs) {
+        d1 = data.deg_1;
+        d2 = data.deg_2;
+        d3 = data.deg_3;
+        d4 = data.deg_4;
+    } else {
+        const r = reconstructDegreesFromDeg1(
+            data.deg_1,
+            data.startX_ro,
+            data.startY_ro,
+            data.endX_ro,
+            data.endY_ro
+        );
+        d1 = r.deg_1;
+        d2 = r.deg_2;
+        d3 = r.deg_3;
+        d4 = r.deg_4;
+    }
+    document.getElementById('deg_1').value = d1;
+    document.getElementById('deg_2').value = d2;
+    document.getElementById('deg_3').value = d3;
+    document.getElementById('deg_4').value = d4;
 
     const mode = getCollectionDegreeMode(currentState.model, currentState.configType);
     document.getElementById('degreeModeSelect').value = mode;
@@ -63,7 +150,6 @@ function reloadCurrentData() {
     const type = currentState.configType;
     const value = currentState.configValue;
 
-    // 1. Restore this config's form data (readonly results + inputs).
     if (committedData[model] &&
         committedData[model][`${type}s`] &&
         committedData[model][`${type}s`][value] !== undefined) {
@@ -74,7 +160,6 @@ function reloadCurrentData() {
         appData[model][`${type}s`][value] = {};
     }
 
-    // 2. Restore this model's degree modes (1&2 vs 3&4).
     if (committedData[model]) {
         if (committedData[model].frontDegreeMode === '12' || committedData[model].frontDegreeMode === '34') {
             appData[model].frontDegreeMode = committedData[model].frontDegreeMode;
@@ -84,10 +169,8 @@ function reloadCurrentData() {
         }
     }
 
-    // 3. Restore the global degree calibration value.
     degreeCalib = committedDegreeCalib;
 
-    // 4. Refresh UI: calibration panel + current form (which also refreshes the mode dropdown).
     updateCalibUI();
     loadCurrentFormData();
     persistToLocal();
