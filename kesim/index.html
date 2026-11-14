@@ -212,23 +212,31 @@
                     <button onclick="toggleVerticalList('list-back', this)" class="tab-btn flex-shrink-0 px-3 bg-[#475569] hover:bg-[#64748b] text-white font-bold py-2 rounded-sm shadow-[2px_2px_0px_#000] active:translate-y-[2px] active:shadow-none transition-all text-sm tracking-widest border border-black/30 label-style">BACK</button>
                     <button onclick="openModelViewer()" class="tab-btn flex-shrink-0 px-3 bg-[#475569] hover:bg-[#64748b] text-white font-bold py-2 rounded-sm shadow-[2px_2px_0px_#000] active:translate-y-[2px] active:shadow-none transition-all text-sm tracking-widest border border-black/30 label-style">VIEW</button>
                     <button onclick="toggleVerticalList('panel-calibrate', this)" class="tab-btn flex-shrink-0 px-3 bg-[#475569] hover:bg-[#64748b] text-white font-bold py-2 rounded-sm shadow-[2px_2px_0px_#000] active:translate-y-[2px] active:shadow-none transition-all text-sm tracking-widest border border-black/30 label-style">CALIBRATE</button>
-                    <!-- RELOAD BUTTON: restores the last saved state (discards unsaved calculations) -->
-                    <button onclick="reloadCurrentData()" class="tab-btn flex-shrink-0 px-3 bg-[#b45309] hover:bg-[#d97706] text-white font-bold py-2 rounded-sm shadow-[2px_2px_0px_#000] active:translate-y-[2px] active:shadow-none transition-all text-sm tracking-widest border border-black/30 label-style">RELOAD</button>
                     <!-- UPDATE BUTTON (Last button in menu) -->
                     <button id="menuUpdateBtn" onclick="checkAndUpdateApp()" class="tab-btn flex-shrink-0 px-3 bg-[#0f766e] hover:bg-[#115e59] text-white font-bold py-2 rounded-sm shadow-[2px_2px_0px_#000] active:translate-y-[2px] active:shadow-none transition-all text-sm tracking-widest border border-black/30 label-style">UPDATE</button>
                 </div>
             </div>
 
             <!-- Main Buttons Row -->
-            <div class="p-3 flex items-center justify-between gap-2">
-                <button onclick="toggleMenu()" class="flex items-center gap-1 px-3 bg-[#475569] hover:bg-[#64748b] text-white font-bold py-2 rounded-sm shadow-[2px_2px_0px_#000] active:translate-y-[2px] active:shadow-none transition-all text-sm tracking-widest border border-black/30 label-style">
+            <div class="p-3 flex items-center gap-2">
+                <!-- MENU is fixed on the left -->
+                <button onclick="toggleMenu()" class="flex-shrink-0 flex items-center gap-1 px-3 bg-[#475569] hover:bg-[#64748b] text-white font-bold py-2 rounded-sm shadow-[2px_2px_0px_#000] active:translate-y-[2px] active:shadow-none transition-all text-sm tracking-widest border border-black/30 label-style">
                     <i class="bi bi-chevron-up transition-transform duration-300" id="menuIcon"></i> MENU
                 </button>
 
-                <button onclick="calculateAction()" class="flex-shrink-0 flex items-center gap-1.5 px-3 bg-[#475569] hover:bg-[#64748b] text-white font-bold py-2 rounded-sm shadow-[2px_2px_0px_#000] active:translate-y-[2px] active:shadow-none transition-all text-sm tracking-widest border border-black/30 label-style">
-                    CALCULATE
-                </button>
+                <!-- CALCULATE + RELOAD live in a horizontally scrollable strip (same pattern as the dropdown tabs) -->
+                <div class="flex-1 min-w-0 overflow-x-auto custom-scrollbar pb-1">
+                    <div class="flex items-center gap-2 w-max mx-auto">
+                        <button onclick="calculateAction()" class="flex-shrink-0 px-3 bg-[#475569] hover:bg-[#64748b] text-white font-bold py-2 rounded-sm shadow-[2px_2px_0px_#000] active:translate-y-[2px] active:shadow-none transition-all text-sm tracking-widest border border-black/30 label-style">
+                            CALCULATE
+                        </button>
+                        <button onclick="reloadCurrentData()" class="flex-shrink-0 px-3 bg-[#b45309] hover:bg-[#d97706] text-white font-bold py-2 rounded-sm shadow-[2px_2px_0px_#000] active:translate-y-[2px] active:shadow-none transition-all text-sm tracking-widest border border-black/30 label-style">
+                            RELOAD
+                        </button>
+                    </div>
+                </div>
 
+                <!-- gear + save are fixed on the right -->
                 <div class="flex items-center gap-3 flex-shrink-0">
                     <button onclick="toggleBackupModal()" class="w-10 h-10 flex items-center justify-center bg-[#475569] hover:bg-[#64748b] text-white rounded-sm shadow-[2px_2px_0px_#000] active:translate-y-[2px] active:shadow-none transition-all border border-black/30" title="Export / Import Data">
                         <i class="bi bi-gear-fill text-xl drop-shadow-md"></i>
