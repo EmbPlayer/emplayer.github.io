@@ -9,6 +9,8 @@ function getFormData() {
         endY_ro: document.getElementById('endY_ro').value,
         endY_in: document.getElementById('endY_in').value,
         len_ro: document.getElementById('len_ro').value,
+        len_start_in: document.getElementById('len_start_in').value,
+        len_end_in: document.getElementById('len_end_in').value,
         deg_1: document.getElementById('deg_1').value,
         deg_2: document.getElementById('deg_2').value,
         deg_3: document.getElementById('deg_3').value,
@@ -28,8 +30,8 @@ function setFormData(data) {
     document.getElementById('endY_in').value = data.endY_in || '';
 
     document.getElementById('len_ro').value = data.len_ro || '';
-    document.getElementById('len_start_in').value = '';
-    document.getElementById('len_end_in').value = '';
+    document.getElementById('len_start_in').value = data.len_start_in || '';
+    document.getElementById('len_end_in').value = data.len_end_in || '';
 
     document.getElementById('deg_1').value = data.deg_1 || '';
     document.getElementById('deg_2').value = data.deg_2 || '';
@@ -51,8 +53,6 @@ function loadCurrentFormData() {
     }
 }
 
-// RELOAD: revert the CURRENT config's form data to the last explicit SAVE.
-// Drafts for other configs are untouched.
 function reloadCurrentData() {
     if (!currentState.model || !currentState.configType || !currentState.configValue) {
         alert("No model/config is currently selected. Please select one first.");
@@ -298,8 +298,7 @@ function updateDisplayer() {
 }
 
 function selectItem(type, name) {
-    // 1. Preserve the current form as a draft in appData BEFORE switching away.
-    //    This is what fixes the "going back loses my edits" problem.
+    // Preserve current form (including resize values) as a draft before switching away.
     if (currentState.model && currentState.configType && currentState.configValue) {
         if (appData[currentState.model] &&
             appData[currentState.model][`${currentState.configType}s`]) {
@@ -307,7 +306,7 @@ function selectItem(type, name) {
         }
     }
 
-    // 2. If the user re-clicks the SAME item, just close the menu (no reload).
+    // Re-clicking the same item: just close the menu, no reload.
     if (type === 'model' && name === currentState.model) {
         toggleMenu();
         return;
@@ -319,7 +318,6 @@ function selectItem(type, name) {
         return;
     }
 
-    // 3. Switch state.
     if (type === 'model') {
         currentState.model = name;
         currentState.configType = null;
@@ -480,7 +478,6 @@ function saveNewItem(btn, type) {
             frontDegreeMode: '12',
             backDegreeMode: '34'
         };
-        // Mirror structural change to committedData (empty data — nothing to preserve)
         committedData[val] = {
             fronts: {},
             backs: {},
@@ -555,7 +552,6 @@ function saveRename(btn, type, oldName) {
         appData[currentState.model][`${type}s`][val] = appData[currentState.model][`${type}s`][oldName];
         delete appData[currentState.model][`${type}s`][oldName];
 
-        // Move committed data to the new name so RELOAD still works
         if (committedData[currentState.model] && committedData[currentState.model][`${type}s`]) {
             const oldCommitted = committedData[currentState.model][`${type}s`][oldName];
             if (oldCommitted !== undefined) {
@@ -588,8 +584,6 @@ function deleteItem(type, name) {
         }
     } else {
         delete appData[currentState.model][`${type}s`][name];
-        // Also remove from committedData so a later re-created config with the same
-        // name doesn't "resurrect" old data via RELOAD.
         if (committedData[currentState.model] && committedData[currentState.model][`${type}s`]) {
             delete committedData[currentState.model][`${type}s`][name];
         }
