@@ -161,5 +161,6 @@ function calculateAction() {
 
     updateDegreeView();
     updateDialPointers();
-    saveAction(false);
+    // NOTE: no saveAction() here anymore — calculations stay in-memory
+    // until the user explicitly presses SAVE.
 }
