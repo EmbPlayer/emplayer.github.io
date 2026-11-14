@@ -63,6 +63,7 @@ function reloadCurrentData() {
     const type = currentState.configType;
     const value = currentState.configValue;
 
+    // 1. Restore this config's form data (readonly results + inputs).
     if (committedData[model] &&
         committedData[model][`${type}s`] &&
         committedData[model][`${type}s`][value] !== undefined) {
@@ -73,6 +74,21 @@ function reloadCurrentData() {
         appData[model][`${type}s`][value] = {};
     }
 
+    // 2. Restore this model's degree modes (1&2 vs 3&4).
+    if (committedData[model]) {
+        if (committedData[model].frontDegreeMode === '12' || committedData[model].frontDegreeMode === '34') {
+            appData[model].frontDegreeMode = committedData[model].frontDegreeMode;
+        }
+        if (committedData[model].backDegreeMode === '12' || committedData[model].backDegreeMode === '34') {
+            appData[model].backDegreeMode = committedData[model].backDegreeMode;
+        }
+    }
+
+    // 3. Restore the global degree calibration value.
+    degreeCalib = committedDegreeCalib;
+
+    // 4. Refresh UI: calibration panel + current form (which also refreshes the mode dropdown).
+    updateCalibUI();
     loadCurrentFormData();
     persistToLocal();
 
@@ -171,6 +187,7 @@ function saveAction(manualSave = false) {
         if (manualSave) {
             cleanAllInputFields();
             committedData = JSON.parse(JSON.stringify(appData));
+            committedDegreeCalib = degreeCalib;
             loadCurrentFormData();
         }
 
@@ -191,6 +208,7 @@ function saveAction(manualSave = false) {
         if (manualSave) {
             cleanAllInputFields();
             committedData = JSON.parse(JSON.stringify(appData));
+            committedDegreeCalib = degreeCalib;
             loadCurrentFormData();
         }
 
@@ -224,6 +242,7 @@ function saveAction(manualSave = false) {
             if (manualSave) {
                 cleanAllInputFields();
                 committedData = JSON.parse(JSON.stringify(appData));
+                committedDegreeCalib = degreeCalib;
                 loadCurrentFormData();
             }
 
