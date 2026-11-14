@@ -1,7 +1,7 @@
 const STORAGE_KEY = 'coordinate_calculator_storage';
 
 let appData = {};
-let committedData = {};   // snapshot at last explicit SAVE (used by RELOAD)
+let committedData = {};
 let degreeCalib = 90;
 let currentState = {
     model: null,
@@ -65,7 +65,6 @@ function loadFromLocal() {
             appData = parsed.appData || {};
             Object.keys(appData).forEach(m => ensureModelDegreeModes(m));
 
-            // Load committed snapshot; if missing (old data), treat current appData as committed.
             if (parsed.committedData && typeof parsed.committedData === 'object') {
                 committedData = JSON.parse(JSON.stringify(parsed.committedData));
             } else {
@@ -164,7 +163,6 @@ function applyImportedPayload(rawText) {
         }
         appData = parsed.appData;
         Object.keys(appData).forEach(m => ensureModelDegreeModes(m));
-        // Imported data becomes the committed state immediately
         committedData = JSON.parse(JSON.stringify(appData));
         currentState = parsed.currentState || { model: null, configType: null, configValue: null };
         if (typeof parsed.degreeCalib === 'number' && isFinite(parsed.degreeCalib)) {
