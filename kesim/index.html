@@ -212,6 +212,8 @@
                     <button onclick="toggleVerticalList('list-back', this)" class="tab-btn flex-shrink-0 px-3 bg-[#475569] hover:bg-[#64748b] text-white font-bold py-2 rounded-sm shadow-[2px_2px_0px_#000] active:translate-y-[2px] active:shadow-none transition-all text-sm tracking-widest border border-black/30 label-style">BACK</button>
                     <button onclick="openModelViewer()" class="tab-btn flex-shrink-0 px-3 bg-[#475569] hover:bg-[#64748b] text-white font-bold py-2 rounded-sm shadow-[2px_2px_0px_#000] active:translate-y-[2px] active:shadow-none transition-all text-sm tracking-widest border border-black/30 label-style">VIEW</button>
                     <button onclick="toggleVerticalList('panel-calibrate', this)" class="tab-btn flex-shrink-0 px-3 bg-[#475569] hover:bg-[#64748b] text-white font-bold py-2 rounded-sm shadow-[2px_2px_0px_#000] active:translate-y-[2px] active:shadow-none transition-all text-sm tracking-widest border border-black/30 label-style">CALIBRATE</button>
+                    <!-- RELOAD BUTTON: restores the last saved state (discards unsaved calculations) -->
+                    <button onclick="reloadCurrentData()" class="tab-btn flex-shrink-0 px-3 bg-[#b45309] hover:bg-[#d97706] text-white font-bold py-2 rounded-sm shadow-[2px_2px_0px_#000] active:translate-y-[2px] active:shadow-none transition-all text-sm tracking-widest border border-black/30 label-style">RELOAD</button>
                     <!-- UPDATE BUTTON (Last button in menu) -->
                     <button id="menuUpdateBtn" onclick="checkAndUpdateApp()" class="tab-btn flex-shrink-0 px-3 bg-[#0f766e] hover:bg-[#115e59] text-white font-bold py-2 rounded-sm shadow-[2px_2px_0px_#000] active:translate-y-[2px] active:shadow-none transition-all text-sm tracking-widest border border-black/30 label-style">UPDATE</button>
                 </div>
@@ -334,8 +336,6 @@
         btn.textContent = 'CHECKING...';
 
         try {
-          // Fetch version.json from server bypassing browser cache
-          // (SW also lets this request through)
           const versionRes = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
           if (!versionRes.ok) throw new Error('Version file not found');
           
@@ -343,7 +343,6 @@
           const serverVersion = versionData.version;
           const localVersion = localStorage.getItem(APP_VERSION_KEY);
 
-          // Check if server has a newer version
           if (!isNewerVersion(serverVersion, localVersion)) {
             alert(`App is already up to date (v${localVersion || serverVersion}).`);
             btn.disabled = false;
@@ -351,9 +350,6 @@
             return;
           }
 
-          // Download fresh app assets.
-          // The X-Update-Fetch header tells sw.js to bypass its own cache
-          // and go straight to the network.
           btn.textContent = `UPDATING v${serverVersion}...`;
           const freshResponses = await Promise.all(
             APP_ASSETS.map(async (url) => {
@@ -366,7 +362,6 @@
             })
           );
 
-          // All downloads succeeded — replace cache contents safely
           await caches.delete(CACHE_NAME);
           const cache = await caches.open(CACHE_NAME);
           for (let i = 0; i < APP_ASSETS.length; i++) {
@@ -374,7 +369,6 @@
             await cache.put(cacheUrl, freshResponses[i]);
           }
 
-          // Save new version and reload
           localStorage.setItem(APP_VERSION_KEY, serverVersion);
           alert(`Successfully updated to v${serverVersion}! Reloading app...`);
           window.location.reload();
