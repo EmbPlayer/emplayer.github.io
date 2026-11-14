@@ -2,6 +2,7 @@ const STORAGE_KEY = 'coordinate_calculator_storage';
 
 let appData = {};
 let committedData = {};
+let committedDegreeCalib = 90;
 let degreeCalib = 90;
 let currentState = {
     model: null,
@@ -46,6 +47,7 @@ function persistToLocal() {
         const payload = {
             appData: appData,
             committedData: committedData,
+            committedDegreeCalib: committedDegreeCalib,
             currentState: currentState,
             degreeCalib: degreeCalib
         };
@@ -74,6 +76,11 @@ function loadFromLocal() {
             currentState = parsed.currentState || { model: null, configType: null, configValue: null };
             if (typeof parsed.degreeCalib === 'number' && isFinite(parsed.degreeCalib)) {
                 degreeCalib = parsed.degreeCalib;
+            }
+            if (typeof parsed.committedDegreeCalib === 'number' && isFinite(parsed.committedDegreeCalib)) {
+                committedDegreeCalib = parsed.committedDegreeCalib;
+            } else {
+                committedDegreeCalib = degreeCalib;
             }
 
             if (currentState.model && !appData[currentState.model]) {
@@ -168,6 +175,7 @@ function applyImportedPayload(rawText) {
         if (typeof parsed.degreeCalib === 'number' && isFinite(parsed.degreeCalib)) {
             degreeCalib = parsed.degreeCalib;
         }
+        committedDegreeCalib = degreeCalib;
         persistToLocal();
         updateCalibUI();
         renderAllLists();
