@@ -214,7 +214,6 @@
                     <button onclick="toggleVerticalList('panel-calibrate', this)" class="tab-btn flex-shrink-0 px-3 bg-[#475569] hover:bg-[#64748b] text-white font-bold py-2 rounded-sm shadow-[2px_2px_0px_#000] active:translate-y-[2px] active:shadow-none transition-all text-sm tracking-widest border border-black/30 label-style">CALIBRATE</button>
                     <!-- UPDATE BUTTON (Last button in menu) -->
                     <button id="menuUpdateBtn" onclick="checkAndUpdateApp()" class="tab-btn flex-shrink-0 px-3 bg-[#0f766e] hover:bg-[#115e59] text-white font-bold py-2 rounded-sm shadow-[2px_2px_0px_#000] active:translate-y-[2px] active:shadow-none transition-all text-sm tracking-widest border border-black/30 label-style">UPDATE</button>
-                    <button onclick="resetAppData()" class="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-slate-800 flex items-center gap-2"><i class="bi bi-arrow-counterclockwise"></i> Reset </button>
                 </div>
             </div>
 
@@ -291,7 +290,7 @@
     <!-- OFFLINE SERVICE WORKER & VERSION CHECK LOGIC -->
     <script>
       const APP_VERSION_KEY = 'coord_calc_installed_version';
-      const CACHE_NAME = 'coord-calculator-v1';
+      const CACHE_NAME = 'coord-calculator-cache';
       const APP_ASSETS = [
         '',
         'index.html',
@@ -336,6 +335,7 @@
 
         try {
           // Fetch version.json from server bypassing browser cache
+          // (SW also lets this request through)
           const versionRes = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
           if (!versionRes.ok) throw new Error('Version file not found');
           
@@ -351,17 +351,27 @@
             return;
           }
 
-          // Download fresh app assets
+          // Download fresh app assets.
+          // The X-Update-Fetch header tells sw.js to bypass its own cache
+          // and go straight to the network.
           btn.textContent = `UPDATING v${serverVersion}...`;
           const freshResponses = await Promise.all(
-            APP_ASSETS.map(url => fetch(url, { cache: 'reload' }))
+            APP_ASSETS.map(async (url) => {
+              const res = await fetch(url, {
+                cache: 'reload',
+                headers: { 'X-Update-Fetch': '1' }
+              });
+              if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`);
+              return res;
+            })
           );
 
-          // Replace cache contents
+          // All downloads succeeded — replace cache contents safely
           await caches.delete(CACHE_NAME);
           const cache = await caches.open(CACHE_NAME);
           for (let i = 0; i < APP_ASSETS.length; i++) {
-            await cache.put(APP_ASSETS[i], freshResponses[i]);
+            const cacheUrl = new URL(APP_ASSETS[i], location.href).href;
+            await cache.put(cacheUrl, freshResponses[i]);
           }
 
           // Save new version and reload
@@ -370,6 +380,7 @@
           window.location.reload();
 
         } catch (err) {
+          console.error(err);
           alert('Could not check for updates. Make sure you have an active internet connection.');
           btn.disabled = false;
           btn.textContent = originalText;
