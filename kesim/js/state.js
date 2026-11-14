@@ -86,6 +86,25 @@ function loadFromLocal() {
     }
 }
 
+function resetAppData() {
+    if (confirm("Are you sure you want to reset? This will clear local storage and load fresh data.")) {
+        try {
+            localStorage.removeItem(STORAGE_KEY);
+        } catch (err) {
+            console.error('Failed to clear localStorage:', err);
+        }
+        appData = {};
+        currentState = { model: null, configType: null, configValue: null };
+        degreeCalib = 90;
+
+        if (typeof updateCalibUI === 'function') updateCalibUI();
+        if (typeof renderAllLists === 'function') renderAllLists();
+        if (typeof clearForm === 'function') clearForm();
+
+        window.location.reload();
+    }
+}
+
 function flashSaveFeedback() {
     const btn = document.getElementById('saveBtn');
     if (!btn) return;
