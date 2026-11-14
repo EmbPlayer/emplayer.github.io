@@ -29,6 +29,8 @@ function setDegreeCalib(val) {
     if (isNaN(parsed) || !isFinite(parsed)) return;
     degreeCalib = parsed;
     updateCalibUI();
+    persistToLocal();
+
     const hasCoords =
         document.getElementById('startX_in').value !== '' ||
         document.getElementById('startY_in').value !== '' ||
@@ -159,4 +161,5 @@ function calculateAction() {
 
     updateDegreeView();
     updateDialPointers();
+    saveAction(false);
 }
