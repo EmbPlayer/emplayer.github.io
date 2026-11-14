@@ -51,17 +51,31 @@ function loadCurrentFormData() {
     }
 }
 
-// RELOAD: discard any in-memory calculation and restore the last saved state.
+// RELOAD: revert the CURRENT config's form data to the last explicit SAVE.
+// Drafts for other configs are untouched.
 function reloadCurrentData() {
     if (!currentState.model || !currentState.configType || !currentState.configValue) {
         alert("No model/config is currently selected. Please select one first.");
         return;
     }
 
-    // Rebuild the form from the persisted snapshot in appData / localStorage.
-    loadCurrentFormData();
+    const model = currentState.model;
+    const type = currentState.configType;
+    const value = currentState.configValue;
 
-    // Close the dropdown so the user can see the reverted form.
+    if (committedData[model] &&
+        committedData[model][`${type}s`] &&
+        committedData[model][`${type}s`][value] !== undefined) {
+        appData[model][`${type}s`][value] = JSON.parse(
+            JSON.stringify(committedData[model][`${type}s`][value])
+        );
+    } else {
+        appData[model][`${type}s`][value] = {};
+    }
+
+    loadCurrentFormData();
+    persistToLocal();
+
     const menu = document.getElementById('dropdownMenu');
     if (menu && !menu.classList.contains('hidden')) {
         toggleMenu();
@@ -145,6 +159,10 @@ function saveAction(manualSave = false) {
         
         appData[baseModelName].fronts["1"] = getFormData();
 
+        if (manualSave) {
+            committedData = JSON.parse(JSON.stringify(appData));
+        }
+
         persistToLocal();
         if (manualSave) flashSaveFeedback();
 
@@ -158,6 +176,11 @@ function saveAction(manualSave = false) {
     if (currentState.model && currentState.configType && currentState.configValue) {
         appData[currentState.model][`${currentState.configType}s`][currentState.configValue] = getFormData();
         setCollectionDegreeMode(currentState.model, currentState.configType, selectedMode);
+
+        if (manualSave) {
+            committedData = JSON.parse(JSON.stringify(appData));
+        }
+
         persistToLocal();
         if (manualSave) flashSaveFeedback();
     } else {
@@ -184,6 +207,11 @@ function saveAction(manualSave = false) {
         if (saved) {
             appData[currentState.model][`${currentState.configType}s`][currentState.configValue] = getFormData();
             setCollectionDegreeMode(currentState.model, currentState.configType, selectedMode);
+
+            if (manualSave) {
+                committedData = JSON.parse(JSON.stringify(appData));
+            }
+
             persistToLocal();
             if (manualSave) flashSaveFeedback();
             renderAllLists();
@@ -270,6 +298,28 @@ function updateDisplayer() {
 }
 
 function selectItem(type, name) {
+    // 1. Preserve the current form as a draft in appData BEFORE switching away.
+    //    This is what fixes the "going back loses my edits" problem.
+    if (currentState.model && currentState.configType && currentState.configValue) {
+        if (appData[currentState.model] &&
+            appData[currentState.model][`${currentState.configType}s`]) {
+            appData[currentState.model][`${currentState.configType}s`][currentState.configValue] = getFormData();
+        }
+    }
+
+    // 2. If the user re-clicks the SAME item, just close the menu (no reload).
+    if (type === 'model' && name === currentState.model) {
+        toggleMenu();
+        return;
+    }
+    if ((type === 'front' || type === 'back') &&
+        type === currentState.configType &&
+        name === currentState.configValue) {
+        toggleMenu();
+        return;
+    }
+
+    // 3. Switch state.
     if (type === 'model') {
         currentState.model = name;
         currentState.configType = null;
@@ -430,8 +480,18 @@ function saveNewItem(btn, type) {
             frontDegreeMode: '12',
             backDegreeMode: '34'
         };
+        // Mirror structural change to committedData (empty data — nothing to preserve)
+        committedData[val] = {
+            fronts: {},
+            backs: {},
+            frontDegreeMode: '12',
+            backDegreeMode: '34'
+        };
     } else {
         appData[currentState.model][`${type}s`][val] = {}; 
+        if (committedData[currentState.model] && committedData[currentState.model][`${type}s`]) {
+            committedData[currentState.model][`${type}s`][val] = {};
+        }
     }
 
     persistToLocal();
@@ -486,10 +546,23 @@ function saveRename(btn, type, oldName) {
     if (type === 'model') {
         appData[val] = appData[oldName];
         delete appData[oldName];
+        if (committedData[oldName]) {
+            committedData[val] = committedData[oldName];
+            delete committedData[oldName];
+        }
         if (currentState.model === oldName) currentState.model = val;
     } else {
         appData[currentState.model][`${type}s`][val] = appData[currentState.model][`${type}s`][oldName];
         delete appData[currentState.model][`${type}s`][oldName];
+
+        // Move committed data to the new name so RELOAD still works
+        if (committedData[currentState.model] && committedData[currentState.model][`${type}s`]) {
+            const oldCommitted = committedData[currentState.model][`${type}s`][oldName];
+            if (oldCommitted !== undefined) {
+                committedData[currentState.model][`${type}s`][val] = oldCommitted;
+            }
+            delete committedData[currentState.model][`${type}s`][oldName];
+        }
 
         if (currentState.configType === type && currentState.configValue === oldName) {
             currentState.configValue = val;
@@ -506,6 +579,7 @@ function deleteItem(type, name) {
 
     if (type === 'model') {
         delete appData[name];
+        if (committedData[name]) delete committedData[name];
         if (currentState.model === name) {
             currentState.model = null;
             currentState.configType = null;
@@ -514,6 +588,11 @@ function deleteItem(type, name) {
         }
     } else {
         delete appData[currentState.model][`${type}s`][name];
+        // Also remove from committedData so a later re-created config with the same
+        // name doesn't "resurrect" old data via RELOAD.
+        if (committedData[currentState.model] && committedData[currentState.model][`${type}s`]) {
+            delete committedData[currentState.model][`${type}s`][name];
+        }
 
         if (currentState.configType === type && currentState.configValue === name) {
             currentState.configType = null;
