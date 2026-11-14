@@ -119,6 +119,34 @@ function flashSaveFeedback() {
     }, 600);
 }
 
+// Fields stripped from the exported JSON:
+//  - *_in        → transient input fields (always empty after SAVE)
+//  - len_ro      → derived from coordinates (distance from start_ro to end_ro)
+//  - deg_2/3/4   → derived from deg_1 (rebuilt on import)
+const EXPORT_STRIP_KEYS = [
+    'startX_in', 'startY_in',
+    'endX_in', 'endY_in',
+    'len_start_in', 'len_end_in',
+    'len_ro',
+    'deg_2', 'deg_3', 'deg_4'
+];
+
+function stripFieldsForExport(appDataClone) {
+    Object.keys(appDataClone).forEach(modelName => {
+        const model = appDataClone[modelName];
+        if (!model) return;
+        ['fronts', 'backs'].forEach(plural => {
+            if (!model[plural]) return;
+            Object.keys(model[plural]).forEach(key => {
+                const cfg = model[plural][key];
+                if (cfg && typeof cfg === 'object') {
+                    EXPORT_STRIP_KEYS.forEach(k => delete cfg[k]);
+                }
+            });
+        });
+    });
+}
+
 function buildExportPayload() {
     if (currentState.model && currentState.configType && currentState.configValue) {
         appData[currentState.model][`${currentState.configType}s`][currentState.configValue] = getFormData();
@@ -129,7 +157,15 @@ function buildExportPayload() {
         );
         persistToLocal();
     }
-    return JSON.stringify({ appData, currentState, degreeCalib }, null, 2);
+
+    const cleanAppData = JSON.parse(JSON.stringify(appData));
+    stripFieldsForExport(cleanAppData);
+
+    return JSON.stringify(
+        { appData: cleanAppData, currentState, degreeCalib },
+        null,
+        2
+    );
 }
 
 function exportDataFile() {
