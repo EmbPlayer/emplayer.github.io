@@ -81,10 +81,17 @@ function updateDialPointers() {
 }
 
 function calculateAction() {
-    let sX = parseFloat(document.getElementById('startX_in').value) || 0;
-    let sY = parseFloat(document.getElementById('startY_in').value) || 0;
-    let eX = parseFloat(document.getElementById('endX_in').value) || 0;
-    let eY = parseFloat(document.getElementById('endY_in').value) || 0;
+    function readCoord(inId, roId) {
+        const inVal = parseFloat(document.getElementById(inId).value);
+        if (!isNaN(inVal)) return inVal;
+        const roVal = parseFloat(document.getElementById(roId).value);
+        return isNaN(roVal) ? 0 : roVal;
+    }
+
+    let sX = readCoord('startX_in', 'startX_ro');
+    let sY = readCoord('startY_in', 'startY_ro');
+    let eX = readCoord('endX_in', 'endX_ro');
+    let eY = readCoord('endY_in', 'endY_ro');
     
     let sResize = parseFloat(document.getElementById('len_start_in').value) || 0;
     let eResize = parseFloat(document.getElementById('len_end_in').value) || 0;
@@ -161,6 +168,4 @@ function calculateAction() {
 
     updateDegreeView();
     updateDialPointers();
-    // NOTE: no saveAction() here anymore — calculations stay in-memory
-    // until the user explicitly presses SAVE.
 }
