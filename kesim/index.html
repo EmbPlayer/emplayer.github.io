@@ -313,14 +313,12 @@
         'css/fonts-googleapis-com.css'
       ];
 
-      // Register Service Worker
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('sw.js');
         });
       }
 
-      // Version comparison utility
       function isNewerVersion(serverVer, localVer) {
         if (!localVer) return true;
         const sParts = String(serverVer).split('.').map(Number);
@@ -336,7 +334,6 @@
         return false;
       }
 
-      // Update button triggered action
       async function checkAndUpdateApp() {
         const btn = document.getElementById('menuUpdateBtn');
         const originalText = btn.textContent;
