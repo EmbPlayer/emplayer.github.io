@@ -19,7 +19,6 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// Cleans up old caches (e.g. the previously mismatched v1/v2/v3 buckets).
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches
@@ -34,9 +33,6 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // 1) version.json is always live
-  // 2) Update fetches carry the X-Update-Fetch header and must
-  //    bypass the cache so we download real fresh bytes.
   if (
     url.pathname.endsWith('version.json') ||
     event.request.headers.get('X-Update-Fetch') === '1'
@@ -45,7 +41,6 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Cache-first for everything else
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) return cachedResponse;
