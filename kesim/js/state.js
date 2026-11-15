@@ -1,0 +1,298 @@
+const STORAGE_KEY = 'coordinate_calculator_storage';
+
+let appData = {};
+let committedData = {};
+let committedDegreeCalib = 90;
+let degreeCalib = 90;
+let currentState = {
+    model: null,
+    configType: null,
+    configValue: null
+};
+
+// ---------- Data validation (used for localStorage and imported backups) ----------
+const CONFIG_FIELDS = [
+    'startX_ro', 'startX_in', 'startY_ro', 'startY_in',
+    'endX_ro', 'endX_in', 'endY_ro', 'endY_in',
+    'len_ro', 'len_start_in', 'len_end_in',
+    'deg_1', 'deg_2', 'deg_3', 'deg_4'
+];
+
+function isPlainObject(v) {
+    return v !== null && typeof v === 'object' && !Array.isArray(v);
+}
+
+// Returns a clean copy that is guaranteed to have the shape the UI expects:
+// { modelName: { fronts: {"1": {...}}, backs: {...}, frontDegreeMode, backDegreeMode } }
+function sanitizeAppData(raw) {
+    const clean = {};
+    if (!isPlainObject(raw)) return clean;
+
+    Object.keys(raw).forEach(name => {
+        if (name === '__proto__') return;
+        const m = raw[name];
+        if (!isPlainObject(m)) return;
+
+        const model = { fronts: {}, backs: {} };
+        ['fronts', 'backs'].forEach(plural => {
+            if (!isPlainObject(m[plural])) return;
+            Object.keys(m[plural]).forEach(key => {
+                if (!/^[1-9][0-9]*$/.test(key)) return;
+                const cfg = m[plural][key];
+                const out = {};
+                if (isPlainObject(cfg)) {
+                    CONFIG_FIELDS.forEach(f => {
+                        const v = cfg[f];
+                        if (typeof v === 'string' || (typeof v === 'number' && isFinite(v))) {
+                            out[f] = String(v);
+                        }
+                    });
+                }
+                model[plural][key] = out;
+            });
+        });
+
+        if (m.frontDegreeMode === '12' || m.frontDegreeMode === '34') model.frontDegreeMode = m.frontDegreeMode;
+        if (m.backDegreeMode === '12' || m.backDegreeMode === '34') model.backDegreeMode = m.backDegreeMode;
+        clean[name] = model;
+    });
+    return clean;
+}
+
+// Makes sure currentState points at things that really exist in appData.
+function normalizeCurrentState(state) {
+    const empty = { model: null, configType: null, configValue: null };
+    if (!isPlainObject(state)) return empty;
+
+    const { model, configType, configValue } = state;
+    if (typeof model !== 'string' || !Object.prototype.hasOwnProperty.call(appData, model)) return empty;
+
+    if ((configType === 'front' || configType === 'back') &&
+        typeof configValue === 'string' &&
+        Object.prototype.hasOwnProperty.call(appData[model][`${configType}s`], configValue)) {
+        return { model, configType, configValue };
+    }
+    return { model, configType: null, configValue: null };
+}
+
+function ensureModelDegreeModes(modelName) {
+    if (!modelName || !appData[modelName]) return;
+    if (appData[modelName].frontDegreeMode !== '12' && appData[modelName].frontDegreeMode !== '34') {
+        appData[modelName].frontDegreeMode = '12';
+    }
+    if (appData[modelName].backDegreeMode !== '12' && appData[modelName].backDegreeMode !== '34') {
+        appData[modelName].backDegreeMode = '34';
+    }
+}
+
+function getCollectionDegreeMode(modelName, configType) {
+    if (!modelName || !appData[modelName]) {
+        return (configType === 'back') ? '34' : '12';
+    }
+    ensureModelDegreeModes(modelName);
+    if (configType === 'front') return appData[modelName].frontDegreeMode;
+    if (configType === 'back') return appData[modelName].backDegreeMode;
+    return '12';
+}
+
+function setCollectionDegreeMode(modelName, configType, mode) {
+    if (!modelName || !appData[modelName]) return;
+    if (mode !== '12' && mode !== '34') return;
+    ensureModelDegreeModes(modelName);
+
+    if (configType === 'front') {
+        appData[modelName].frontDegreeMode = mode;
+    } else if (configType === 'back') {
+        appData[modelName].backDegreeMode = mode;
+    }
+}
+
+function persistToLocal() {
+    try {
+        const payload = {
+            appData: appData,
+            committedData: committedData,
+            committedDegreeCalib: committedDegreeCalib,
+            currentState: currentState,
+            degreeCalib: degreeCalib
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    } catch (err) {
+        console.error('Failed to save data to localStorage:', err);
+    }
+}
+
+function loadFromLocal() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+            appData = sanitizeAppData(parsed.appData);
+            Object.keys(appData).forEach(m => ensureModelDegreeModes(m));
+
+            if (isPlainObject(parsed.committedData)) {
+                committedData = sanitizeAppData(parsed.committedData);
+            } else {
+                committedData = JSON.parse(JSON.stringify(appData));
+            }
+
+            currentState = normalizeCurrentState(parsed.currentState);
+            if (typeof parsed.degreeCalib === 'number' && isFinite(parsed.degreeCalib)) {
+                degreeCalib = parsed.degreeCalib;
+            }
+            if (typeof parsed.committedDegreeCalib === 'number' && isFinite(parsed.committedDegreeCalib)) {
+                committedDegreeCalib = parsed.committedDegreeCalib;
+            } else {
+                committedDegreeCalib = degreeCalib;
+            }
+
+        }
+    } catch (err) {
+        console.error('Failed to load data from localStorage:', err);
+    }
+}
+
+function flashSaveFeedback() {
+    const btn = document.getElementById('saveBtn');
+    if (!btn) return;
+    const icon = btn.querySelector('i');
+    btn.classList.add('!bg-emerald-600', '!border-emerald-400');
+    if (icon) {
+        icon.classList.remove('bi-floppy');
+        icon.classList.add('bi-check-lg');
+    }
+    setTimeout(() => {
+        btn.classList.remove('!bg-emerald-600', '!border-emerald-400');
+        if (icon) {
+            icon.classList.remove('bi-check-lg');
+            icon.classList.add('bi-floppy');
+        }
+    }, 600);
+}
+
+// Fields stripped from the exported JSON:
+//  - *_in        → transient input fields (always empty after SAVE)
+//  - len_ro      → derived from coordinates (distance from start_ro to end_ro)
+//  - deg_2/3/4   → derived from deg_1 (rebuilt on import)
+const EXPORT_STRIP_KEYS = [
+    'startX_in', 'startY_in',
+    'endX_in', 'endY_in',
+    'len_start_in', 'len_end_in',
+    'len_ro',
+    'deg_2', 'deg_3', 'deg_4'
+];
+
+function stripFieldsForExport(appDataClone) {
+    Object.keys(appDataClone).forEach(modelName => {
+        const model = appDataClone[modelName];
+        if (!model) return;
+        ['fronts', 'backs'].forEach(plural => {
+            if (!model[plural]) return;
+            Object.keys(model[plural]).forEach(key => {
+                const cfg = model[plural][key];
+                if (cfg && typeof cfg === 'object') {
+                    EXPORT_STRIP_KEYS.forEach(k => delete cfg[k]);
+                }
+            });
+        });
+    });
+}
+
+function buildExportPayload() {
+    if (currentState.model && currentState.configType && currentState.configValue) {
+        appData[currentState.model][`${currentState.configType}s`][currentState.configValue] = getFormData();
+        setCollectionDegreeMode(
+            currentState.model,
+            currentState.configType,
+            document.getElementById('degreeModeSelect').value
+        );
+        persistToLocal();
+    }
+
+    const cleanAppData = JSON.parse(JSON.stringify(appData));
+    stripFieldsForExport(cleanAppData);
+
+    return JSON.stringify(
+        { appData: cleanAppData, currentState, degreeCalib },
+        null,
+        2
+    );
+}
+
+function exportDataFile() {
+    const jsonStr = buildExportPayload();
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const dateTag = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `coordinate-data-${dateTag}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showBackupStatus('Backup file exported successfully.');
+}
+
+async function copyDataToClipboard() {
+    const jsonStr = buildExportPayload();
+    try {
+        await navigator.clipboard.writeText(jsonStr);
+        showBackupStatus('Data copied to clipboard!');
+    } catch (e) {
+        const area = document.getElementById('importJsonText');
+        area.value = jsonStr;
+        area.select();
+        document.execCommand('copy');
+        showBackupStatus('Data copied to clipboard!');
+    }
+}
+
+function applyImportedPayload(rawText) {
+    try {
+        const parsed = JSON.parse(rawText);
+        if (!isPlainObject(parsed) || !isPlainObject(parsed.appData)) {
+            showBackupStatus('Invalid backup format.', true);
+            return;
+        }
+        appData = sanitizeAppData(parsed.appData);
+        Object.keys(appData).forEach(m => ensureModelDegreeModes(m));
+        committedData = JSON.parse(JSON.stringify(appData));
+        currentState = normalizeCurrentState(parsed.currentState);
+        if (typeof parsed.degreeCalib === 'number' && isFinite(parsed.degreeCalib)) {
+            degreeCalib = parsed.degreeCalib;
+        }
+        committedDegreeCalib = degreeCalib;
+        persistToLocal();
+        updateCalibUI();
+        renderAllLists();
+        loadCurrentFormData();
+        showBackupStatus('Data restored successfully!');
+        setTimeout(() => toggleBackupModal(), 900);
+    } catch (err) {
+        showBackupStatus('Could not read data. Check JSON format.', true);
+    }
+}
+
+function importDataFile(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        applyImportedPayload(e.target.result);
+        event.target.value = '';
+    };
+    reader.readAsText(file);
+}
+
+function importDataFromText() {
+    const rawText = document.getElementById('importJsonText').value.trim();
+    if (!rawText) {
+        showBackupStatus('Please paste backup data first.', true);
+        return;
+    }
+    applyImportedPayload(rawText);
+    document.getElementById('importJsonText').value = '';
+}
