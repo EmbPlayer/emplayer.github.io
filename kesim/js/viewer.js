@@ -112,6 +112,13 @@ function viewerFitAll() {
         maxX = Math.max(maxX, line.x1, line.x2);
         minY = Math.min(minY, line.y1, line.y2);
         maxY = Math.max(maxY, line.y1, line.y2);
+        // Include length-delta extents so the delta indicator stays in view
+        if (line.lengthDelta) {
+            minX = Math.min(minX, line.lengthDelta.x1, line.lengthDelta.x2);
+            maxX = Math.max(maxX, line.lengthDelta.x1, line.lengthDelta.x2);
+            minY = Math.min(minY, line.lengthDelta.y1, line.lengthDelta.y2);
+            maxY = Math.max(maxY, line.lengthDelta.y1, line.lengthDelta.y2);
+        }
     });
 
     const spanX = maxX - minX;
@@ -258,6 +265,149 @@ function drawViewerAxes(width, height, step) {
     vCtx.fillText('0', origin.x - 6, origin.y + 12);
 }
 
+// ============================================================
+// LENGTH DELTA DETECTION (vs. last saved committed data)
+// ============================================================
+
+// Extract the displayed coordinates for an item, matching the viewer's
+// display logic (`_in || _ro` — raw input first, then calculated value).
+function getLineCoordsFromItem(item) {
+    if (!item) return null;
+    const x1 = parseFloat(item.startX_in || item.startX_ro);
+    const y1 = parseFloat(item.startY_in || item.startY_ro);
+    const x2 = parseFloat(item.endX_in || item.endX_ro);
+    const y2 = parseFloat(item.endY_in || item.endY_ro);
+    if (isNaN(x1) || isNaN(y1) || isNaN(x2) || isNaN(y2)) return null;
+    return { x1, y1, x2, y2 };
+}
+
+// Returns { x1, y1, x2, y2, type: 'longer'|'shorter', diff } when the
+// current line is collinear with the committed line AND only the length
+// changed (one endpoint anchored, the other extended / retracted).
+// Returns null in every other case.
+function computeLengthDelta(current, committed) {
+    if (!current || !committed) return null;
+
+    const dx1 = current.x2 - current.x1;
+    const dy1 = current.y2 - current.y1;
+    const len1 = Math.hypot(dx1, dy1);
+
+    const dx2 = committed.x2 - committed.x1;
+    const dy2 = committed.y2 - committed.y1;
+    const len2 = Math.hypot(dx2, dy2);
+
+    if (len1 < 1e-6 || len2 < 1e-6) return null;
+
+    // 1) Must be parallel (|sin| < 1e-4)
+    const cross = dx1 * dy2 - dy1 * dx2;
+    if (Math.abs(cross) / (len1 * len2) > 1e-4) return null;
+
+    // 2) Must be collinear (perpendicular distance from current start to committed line)
+    const px = current.x1 - committed.x1;
+    const py = current.y1 - committed.y1;
+    const perpDist = Math.abs(px * dy2 - py * dx2) / len2;
+    if (perpDist > 0.01) return null;
+
+    // 3) Length must actually differ
+    const lenDiff = len1 - len2;
+    if (Math.abs(lenDiff) < 0.01) return null;
+
+    // 4) Find the anchor endpoint (one endpoint must be ~fixed)
+    const tol = 0.02;
+    const ssDist = Math.hypot(current.x1 - committed.x1, current.y1 - committed.y1);
+    const eeDist = Math.hypot(current.x2 - committed.x2, current.y2 - committed.y2);
+
+    const isLonger = lenDiff > 0;
+    let delta = null;
+
+    if (ssDist <= tol && ssDist <= eeDist) {
+        // Start anchored → the END moved
+        if (isLonger) {
+            delta = { x1: committed.x2, y1: committed.y2, x2: current.x2, y2: current.y2 };
+        } else {
+            delta = { x1: current.x2, y1: current.y2, x2: committed.x2, y2: committed.y2 };
+        }
+    } else if (eeDist <= tol) {
+        // End anchored → the START moved
+        if (isLonger) {
+            delta = { x1: committed.x1, y1: committed.y1, x2: current.x1, y2: current.y1 };
+        } else {
+            delta = { x1: current.x1, y1: current.y1, x2: committed.x1, y2: committed.y1 };
+        }
+    } else {
+        // Neither endpoint anchored → the line shifted, not a pure length change
+        return null;
+    }
+
+    return {
+        x1: delta.x1, y1: delta.y1,
+        x2: delta.x2, y2: delta.y2,
+        type: isLonger ? 'longer' : 'shorter',
+        diff: lenDiff
+    };
+}
+
+function drawLengthDelta(delta) {
+    const sp1 = vWorldToScreen(delta.x1, delta.y1);
+    const sp2 = vWorldToScreen(delta.x2, delta.y2);
+
+    const isLonger = delta.type === 'longer';
+    // Blue = longer, Purple = shorter
+    const color = isLonger ? '#3b82f6' : '#a855f7';
+
+    vCtx.save();
+
+    // Delta segment (solid blue when longer, dashed purple when shorter)
+    vCtx.strokeStyle = color;
+    vCtx.lineWidth = 3;
+    vCtx.lineCap = 'round';
+    if (!isLonger) vCtx.setLineDash([6, 4]);
+    vCtx.beginPath();
+    vCtx.moveTo(sp1.x, sp1.y);
+    vCtx.lineTo(sp2.x, sp2.y);
+    vCtx.stroke();
+    vCtx.setLineDash([]);
+
+    // Perpendicular tick marks at both delta endpoints
+    const dx = sp2.x - sp1.x;
+    const dy = sp2.y - sp1.y;
+    const segLen = Math.hypot(dx, dy);
+    if (segLen > 1) {
+        const nx = -dy / segLen * 5;
+        const ny = dx / segLen * 5;
+        vCtx.beginPath();
+        vCtx.moveTo(sp1.x - nx, sp1.y - ny);
+        vCtx.lineTo(sp1.x + nx, sp1.y + ny);
+        vCtx.moveTo(sp2.x - nx, sp2.y - ny);
+        vCtx.lineTo(sp2.x + nx, sp2.y + ny);
+        vCtx.stroke();
+    }
+
+    // Floating pill label with +/- length difference
+    const midX = (sp1.x + sp2.x) / 2;
+    const midY = (sp1.y + sp2.y) / 2;
+    const labelText = (isLonger ? '+' : '-') + Math.abs(delta.diff).toFixed(2);
+
+    vCtx.font = 'bold 10px ui-sans-serif, system-ui, sans-serif';
+    const tw = vCtx.measureText(labelText).width;
+    const pillW = tw + 10;
+    const pillH = 14;
+    const pillX = midX - pillW / 2;
+    const pillY = midY - 16 - pillH;
+
+    vCtx.fillStyle = color;
+    vCtx.beginPath();
+    vCtx.roundRect(pillX, pillY, pillW, pillH, 3);
+    vCtx.fill();
+
+    vCtx.fillStyle = '#0f172a';
+    vCtx.textAlign = 'center';
+    vCtx.textBaseline = 'middle';
+    vCtx.fillText(labelText, midX, pillY + pillH / 2 + 0.5);
+
+    vCtx.restore();
+}
+
 function drawViewerLine(line) {
     const sp1 = vWorldToScreen(line.x1, line.y1);
     const sp2 = vWorldToScreen(line.x2, line.y2);
@@ -271,6 +421,11 @@ function drawViewerLine(line) {
     vCtx.moveTo(sp1.x, sp1.y);
     vCtx.lineTo(sp2.x, sp2.y);
     vCtx.stroke();
+
+    // Overlay length-change indicator (blue = longer, purple = shorter)
+    if (line.lengthDelta) {
+        drawLengthDelta(line.lengthDelta);
+    }
 
     const dx = line.x2 - line.x1;
     const dy = line.y2 - line.y1;
@@ -493,37 +648,55 @@ function openModelViewer() {
         return;
     }
 
+    // Sync the currently active form into appData so the viewer reflects
+    // the latest (possibly unsaved) calculation. The delta indicator compares
+    // this synced snapshot against `committedData` (the last manual save).
+    if (currentState.configType && currentState.configValue &&
+        appData[currentState.model][`${currentState.configType}s`] &&
+        appData[currentState.model][`${currentState.configType}s`][currentState.configValue] !== undefined) {
+        appData[currentState.model][`${currentState.configType}s`][currentState.configValue] = getFormData();
+    }
+
     const modelName = currentState.model;
     document.getElementById('viewerModelTitle').textContent = modelName;
 
     let lines = [];
+    let hasAnyDelta = false;
     const modelData = appData[modelName];
-    
-    // Get independent degree mode settings for front and back[cite: 4]
+
+    // Independent degree modes for front and back
     const frontMode = getCollectionDegreeMode(modelName, 'front');
     const backMode = getCollectionDegreeMode(modelName, 'back');
-    
+
+    const getCommittedItem = (type, key) => {
+        if (!committedData[modelName]) return null;
+        const plural = `${type}s`;
+        if (!committedData[modelName][plural]) return null;
+        return committedData[modelName][plural][key] || null;
+    };
+
     if (modelData.fronts) {
         Object.keys(modelData.fronts)
             .sort((a, b) => parseInt(a, 10) - parseInt(b, 10))
             .forEach(key => {
                 const item = modelData.fronts[key];
-                const x1 = parseFloat(item.startX_in || item.startX_ro);
-                const y1 = parseFloat(item.startY_in || item.startY_ro);
-                const x2 = parseFloat(item.endX_in || item.endX_ro);
-                const y2 = parseFloat(item.endY_in || item.endY_ro);
+                const current = getLineCoordsFromItem(item);
+                if (!current) return;
 
-                if (!isNaN(x1) && !isNaN(y1) && !isNaN(x2) && !isNaN(y2)) {
-                    // Use deg_3 if mode is '34', otherwise deg_1
-                    const degVal = (frontMode === '34') ? (item.deg_3 || "0°") : (item.deg_1 || "0°");
-                    lines.push({
-                        label: `F-${key}`,
-                        degree: degVal,
-                        x1: x1, y1: y1, x2: x2, y2: y2,
-                        color: '#22c55e', // Green for front lines
-                        visible: true
-                    });
-                }
+                const degVal = (frontMode === '34') ? (item.deg_3 || "0°") : (item.deg_1 || "0°");
+                const committed = getLineCoordsFromItem(getCommittedItem('front', key));
+                const lengthDelta = computeLengthDelta(current, committed);
+                if (lengthDelta) hasAnyDelta = true;
+
+                lines.push({
+                    label: `F-${key}`,
+                    degree: degVal,
+                    x1: current.x1, y1: current.y1,
+                    x2: current.x2, y2: current.y2,
+                    color: '#22c55e', // Green for front lines
+                    visible: true,
+                    lengthDelta: lengthDelta
+                });
             });
     }
 
@@ -532,22 +705,23 @@ function openModelViewer() {
             .sort((a, b) => parseInt(a, 10) - parseInt(b, 10))
             .forEach(key => {
                 const item = modelData.backs[key];
-                const x1 = parseFloat(item.startX_in || item.startX_ro);
-                const y1 = parseFloat(item.startY_in || item.startY_ro);
-                const x2 = parseFloat(item.endX_in || item.endX_ro);
-                const y2 = parseFloat(item.endY_in || item.endY_ro);
+                const current = getLineCoordsFromItem(item);
+                if (!current) return;
 
-                if (!isNaN(x1) && !isNaN(y1) && !isNaN(x2) && !isNaN(y2)) {
-                    // Use deg_3 if mode is '34', otherwise deg_1
-                    const degVal = (backMode === '34') ? (item.deg_3 || "0°") : (item.deg_1 || "0°");
-                    lines.push({
-                        label: `B-${key}`,
-                        degree: degVal,
-                        x1: x1, y1: y1, x2: x2, y2: y2,
-                        color: '#ef4444', // Red for back lines
-                        visible: true
-                    });
-                }
+                const degVal = (backMode === '34') ? (item.deg_3 || "0°") : (item.deg_1 || "0°");
+                const committed = getLineCoordsFromItem(getCommittedItem('back', key));
+                const lengthDelta = computeLengthDelta(current, committed);
+                if (lengthDelta) hasAnyDelta = true;
+
+                lines.push({
+                    label: `B-${key}`,
+                    degree: degVal,
+                    x1: current.x1, y1: current.y1,
+                    x2: current.x2, y2: current.y2,
+                    color: '#ef4444', // Red for back lines
+                    visible: true,
+                    lengthDelta: lengthDelta
+                });
             });
     }
 
@@ -557,6 +731,13 @@ function openModelViewer() {
     }
 
     viewerState.items.lines = lines;
+
+    // Show / hide the legend based on whether any deltas exist
+    const legend = document.getElementById('viewerDeltaLegend');
+    if (legend) {
+        if (hasAnyDelta) legend.classList.remove('hidden');
+        else legend.classList.add('hidden');
+    }
 
     const menu = document.getElementById('dropdownMenu');
     if (menu && !menu.classList.contains('hidden')) {
